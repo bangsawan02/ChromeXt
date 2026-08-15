@@ -3,3 +3,8 @@
 .kotlin
 apktool
 *.apk
+!.build-outputs/
+!.build-outputs/**
+debug.keystore
+debug.keystore.base64
+metadata.json

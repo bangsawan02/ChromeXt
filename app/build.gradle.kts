@@ -10,15 +10,27 @@ android {
 
   defaultConfig {
     applicationId = "org.matrix.chromext"
-    minSdk = 21
-    targetSdk = 35
+    minSdk = 32
+    targetSdk = 34
     versionCode = 16
     versionName = "3.8.2"
   }
 
   buildFeatures { buildConfig = true }
 
+  signingConfigs {
+    create("debugConfig") {
+      storeFile = file("${rootDir}/debug.keystore")
+      storePassword = "android"
+      keyAlias = "androiddebugkey"
+      keyPassword = "android"
+    }
+  }
+
   buildTypes {
+    debug {
+      signingConfig = signingConfigs.getByName("debugConfig")
+    }
     release {
       isShrinkResources = true
       isMinifyEnabled = true
