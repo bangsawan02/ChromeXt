@@ -46,6 +46,12 @@ object ScriptDbManager {
         ctx.getSharedPreferences("ChromeXt", Context.MODE_PRIVATE).getBoolean("keep_storage", true)
   }
 
+  fun reloadScripts(): List<Script> {
+    scripts.clear()
+    scripts.addAll(query())
+    return scripts
+  }
+
   fun insert(vararg script: Script) {
     val dbHelper = ScriptDbHelper(Chrome.getContext())
     val db = dbHelper.writableDatabase
@@ -157,7 +163,7 @@ object ScriptDbManager {
     codes.clear()
     if (asyncEvaluation) codes.add(initScript)
     if (runScripts) {
-      scripts
+      reloadScripts()
           .filter { matching(it, url) && !(frameId != null && it.noframes) }
           .forEach {
             if (it.grant.contains("frames")) framesGranted = true

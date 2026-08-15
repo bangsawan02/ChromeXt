@@ -35,6 +35,8 @@ object UserScriptProxy {
   }
   val webContentsObserverProxy by lazy {
       Chrome.loadOrNull("org.chromium.content.browser.webcontents.WebContentsObserverProxy")
+          ?: Chrome.loadOrNull("org.chromium.content_public.browser.WebContentsObserver")
+          ?: Chrome.loadOrNull("org.chromium.chrome.browser.tab.TabWebContentsObserver")
   }
   val navigationControllerImpl by lazy {
       Chrome.loadOrNull("org.chromium.content.browser.framehost.NavigationControllerImpl")

@@ -102,13 +102,31 @@ object UserScriptHook : BaseHook() {
           .onFailure { if (BuildConfig.DEBUG) Log.ex(it) }
     }
 
+    findMethodOrNull(proxy.tabWebContentsDelegateAndroidImpl, true) {
+          name == "didStopLoading" || name == "onPageLoadFinished"
+        }
+        ?.hookAfter {
+          val tab = runCatching { proxy.mTab.get(it.thisObject) }.getOrNull() ?: Chrome.getTab()
+          if (tab != null) Chrome.updateTab(tab)
+
+          var url = if (tab != null && proxy.getUrl != null) proxy.parseUrl(proxy.getUrl?.invoke(tab)) else null
+          if (url == null || url.isEmpty()) {
+            if (it.args.isNotEmpty()) {
+              url = proxy.parseUrl(it.args[0])
+            }
+          }
+          if (url != null && url.isNotEmpty() && !url.startsWith("chrome")) {
+            ScriptDbManager.invokeScript(url)
+          }
+        }
+
     proxy.webContentsObserverProxy?.let { observerClass ->
       findMethodOrNull(observerClass, true) {
             name == "didStopLoading"
           }
           ?.hookAfter {
-            val tab = Chrome.getTab() ?: return@hookAfter
-            var url = if (proxy.getUrl != null) proxy.parseUrl(proxy.getUrl?.invoke(tab)) else null
+            val tab = Chrome.getTab()
+            var url = if (tab != null && proxy.getUrl != null) proxy.parseUrl(proxy.getUrl?.invoke(tab)) else null
             if (url == null || url.isEmpty()) {
               if (it.args.isNotEmpty()) {
                 url = proxy.parseUrl(it.args[0])
