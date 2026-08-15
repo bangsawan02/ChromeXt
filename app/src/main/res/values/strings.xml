@@ -1,0 +1,23 @@
+<resources>
+	<string name="app_name">ChromeXt</string>
+	<string name="view_in_chrome">Open in Chrome</string>
+	<string name="xposed_desc">UserScript and DevTools supports for Chromium based and WebView based browsers</string>
+	<string name="main_menu_extension">Extensions</string>
+	<string name="main_menu_install_script">Install UserScript</string>
+	<string name="main_menu_developer_tools">Developer tools</string>
+	<string name="main_menu_eruda_console">Eruda console</string>
+	<string name="userscript_manager">UserScript Manager</string>
+	<string name="search_scripts">Search scripts…</string>
+	<string name="add_script">Add Script</string>
+	<string name="import_file">Import File</string>
+	<string name="import_url">Import URL</string>
+	<string name="new_script">Create New</string>
+	<string name="no_scripts">No UserScripts installed.\nTap + to add one!</string>
+	<string name="edit_script">Edit UserScript</string>
+	<string name="delete_script">Delete Script</string>
+	<string name="delete_confirm">Are you sure you want to delete this script?</string>
+	<string name="save">Save</string>
+	<string name="cancel">Cancel</string>
+	<string name="delete">Delete</string>
+	<string name="export">Export</string>
+</resources>

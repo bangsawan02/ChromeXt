@@ -1,0 +1,104 @@
+name: Android CI
+
+on:
+  push:
+    branches: [ "master", "main" ]
+  pull_request:
+    branches: [ "master", "main" ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Set up JDK 21
+      uses: actions/setup-java@v4
+      with:
+        java-version: '21'
+        distribution: 'temurin'
+
+    - name: Setup Gradle
+      uses: gradle/actions/setup-gradle@v3
+      with:
+        save-if-failed: 'true'
+
+    - name: Cache Gradle Packages
+      uses: actions/cache@v4
+      if: always()
+      with:
+        path: |
+          ~/.gradle/caches
+          ~/.gradle/wrapper
+        key: ${{ runner.os }}-gradle-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties') }}
+        restore-keys: |
+          ${{ runner.os }}-gradle-
+
+    - name: Grant execute permission for gradlew
+      run: chmod +x gradlew
+
+    - name: Build Debug APK
+      run: ./gradlew app:assembleDebug
+
+    - name: Rename Debug APK
+      run: |
+        if [ -f "app/build/outputs/apk/debug/app-debug.apk" ]; then
+          mv app/build/outputs/apk/debug/app-debug.apk app/build/ChromeXt_debug.apk
+        fi
+
+    - name: Upload Debug APK Artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: ChromeXt_debug.apk
+        path: app/build/ChromeXt_debug.apk
+
+    - name: Build Release APK
+      if: ${{ ( github.event_name != 'pull_request' && (github.ref == 'refs/heads/master' || github.ref == 'refs/heads/main') ) || github.ref_type == 'tag' }}
+      run: ./gradlew app:assembleRelease
+
+    - name: Rename Unsigned Release APK
+      if: ${{ ( github.event_name != 'pull_request' && (github.ref == 'refs/heads/master' || github.ref == 'refs/heads/main') ) || github.ref_type == 'tag' }}
+      run: |
+        if [ -f "app/build/outputs/apk/release/app-release-unsigned.apk" ]; then
+          mv app/build/outputs/apk/release/app-release-unsigned.apk app/build/outputs/apk/release/ChromeXt.apk
+        fi
+
+    - name: Prepare Signing Credentials
+      if: ${{ ( github.event_name != 'pull_request' && (github.ref == 'refs/heads/master' || github.ref == 'refs/heads/main') ) || github.ref_type == 'tag' }}
+      id: sign_creds
+      run: |
+        if [ -n "${{ secrets.SIGNING_KEY }}" ]; then
+          echo "Using repository secrets for signing."
+          echo "signing_key=${{ secrets.SIGNING_KEY }}" >> $GITHUB_OUTPUT
+          echo "alias=${{ secrets.ALIAS }}" >> $GITHUB_OUTPUT
+          echo "keystore_pass=${{ secrets.KEY_STORE_PASSWORD }}" >> $GITHUB_OUTPUT
+          echo "key_pass=${{ secrets.KEY_PASSWORD }}" >> $GITHUB_OUTPUT
+        else
+          echo "Signing secrets are not set. Using local debug.keystore.base64 fallback."
+          KEY_CONTENT=$(cat debug.keystore.base64 | tr -d '\n\r')
+          echo "signing_key=$KEY_CONTENT" >> $GITHUB_OUTPUT
+          echo "alias=androiddebugkey" >> $GITHUB_OUTPUT
+          echo "keystore_pass=android" >> $GITHUB_OUTPUT
+          echo "key_pass=android" >> $GITHUB_OUTPUT
+        fi
+
+    - name: Sign Release APK
+      if: ${{ ( github.event_name != 'pull_request' && (github.ref == 'refs/heads/master' || github.ref == 'refs/heads/main') ) || github.ref_type == 'tag' }}
+      uses: noriban/sign-android-release@v1.0.4
+      id: sign_app
+      with:
+        releaseDirectory: app/build/outputs/apk/release
+        signingKeyBase64: ${{ steps.sign_creds.outputs.signing_key }}
+        alias: ${{ steps.sign_creds.outputs.alias }}
+        keyStorePassword: ${{ steps.sign_creds.outputs.keystore_pass }}
+        keyPassword: ${{ steps.sign_creds.outputs.key_pass }}
+        buildToolsVersion: 36.0.0
+
+    - name: Upload Signed Release APK Artifact
+      if: ${{ ( github.event_name != 'pull_request' && (github.ref == 'refs/heads/master' || github.ref == 'refs/heads/main') ) || github.ref_type == 'tag' }}
+      uses: actions/upload-artifact@v4
+      with:
+        name: ChromeXt_signed.apk
+        path: ${{ steps.sign_app.outputs.signedReleaseFile }}

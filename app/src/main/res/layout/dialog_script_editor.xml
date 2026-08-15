@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:padding="16dp">
+
+    <TextView
+        android:id="@+id/tv_dialog_title"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Edit UserScript"
+        android:textSize="18sp"
+        android:textStyle="bold"
+        android:textColor="#0F172A"
+        android:layout_marginBottom="12dp" />
+
+    <EditText
+        android:id="@+id/et_script_code"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:gravity="top|start"
+        android:fontFamily="monospace"
+        android:textSize="12sp"
+        android:padding="10dp"
+        android:background="#1E293B"
+        android:textColor="#F8FAFC"
+        android:hint="// ==UserScript==\n// @name        My Script\n// @match       *://*/*\n// ==/UserScript==\n\nconsole.log('Hello');"
+        android:textColorHint="#64748B"
+        android:inputType="textMultiLine"
+        android:scrollbars="vertical"
+        android:minLines="12" />
+
+</LinearLayout>
