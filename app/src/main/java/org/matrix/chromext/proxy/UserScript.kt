@@ -7,6 +7,7 @@ import org.matrix.chromext.Chrome
 import org.matrix.chromext.script.ScriptDbManager
 import org.matrix.chromext.utils.Log
 import org.matrix.chromext.utils.findField
+import org.matrix.chromext.utils.findFieldOrNull
 import org.matrix.chromext.utils.findMethod
 import org.matrix.chromext.utils.findMethodOrNull
 import org.matrix.chromext.utils.invokeMethod
@@ -50,55 +51,74 @@ object UserScriptProxy {
       if (Chrome.isSamsung) {
         Chrome.load("com.sec.terrace.Terrace")
       } else {
-        Chrome.load("org.chromium.chrome.browser.tab.TabImpl")
+        Chrome.loadOrNull("org.chromium.chrome.browser.tab.TabImpl")
+            ?: Chrome.load("org.chromium.chrome.browser.tab.Tab")
       }
   }
-  val getId by lazy { findMethodOrNull(tabImpl) { name == "getId" } }
+  val getId by lazy { findMethodOrNull(tabImpl, true) { name == "getId" } }
   val mId by lazy {
-      (if (Chrome.isSamsung) tabWebContentsDelegateAndroidImpl else tabImpl)
-          .declaredFields
-          .run {
-            val target = find { it.name == "mId" }
-            if (target == null) {
-              val profile = Chrome.load("org.chromium.chrome.browser.profiles.Profile")
-              val windowAndroid = Chrome.load("org.chromium.ui.base.WindowAndroid")
-              var startIndex = indexOfFirst { it.type == gURL }
-              val endIndex = indexOfFirst {
-                it.type == profile ||
-                    it.type == ContextThemeWrapper::class.java ||
-                    it.type == windowAndroid
+      val targetClass = if (Chrome.isSamsung) tabWebContentsDelegateAndroidImpl else tabImpl
+      findFieldOrNull(targetClass, true) { name == "mId" }
+          ?: targetClass.declaredFields
+              .run {
+                val target = find { it.name == "mId" }
+                if (target == null) {
+                  val profile = Chrome.loadOrNull("org.chromium.chrome.browser.profiles.Profile")
+                  val windowAndroid = Chrome.loadOrNull("org.chromium.ui.base.WindowAndroid")
+                  var startIndex = indexOfFirst { it.type == gURL }
+                  val endIndex = indexOfFirst {
+                    (profile != null && it.type == profile) ||
+                        it.type == ContextThemeWrapper::class.java ||
+                        (windowAndroid != null && it.type == windowAndroid)
+                  }
+                  if (startIndex == -1 || startIndex > endIndex) startIndex = 0
+                  val found =
+                      if (endIndex > startIndex)
+                          slice(startIndex until endIndex).findLast {
+                            it.type == Int::class.java || it.type == java.lang.Integer.TYPE
+                          }
+                      else null
+                  found
+                      ?: find { it.type == Int::class.java || it.type == java.lang.Integer.TYPE }
+                      ?: targetClass.declaredFields.first()
+                } else target
               }
-              if (startIndex == -1 || startIndex > endIndex) startIndex = 0
-              slice(startIndex..endIndex - 1).findLast { it.type == Int::class.java }!!
-            } else target
-          }
-          .also { it.isAccessible = true }
+              .also { it.isAccessible = true }
   }
-  val mTab by lazy { findField(tabWebContentsDelegateAndroidImpl) { type == tabImpl } }
+  val mTab by lazy {
+      findFieldOrNull(tabWebContentsDelegateAndroidImpl, true) { type == tabImpl || tabImpl.isAssignableFrom(type) }
+          ?: findField(tabWebContentsDelegateAndroidImpl, true) { !type.isPrimitive }
+  }
   val mIsLoading by lazy {
-      tabImpl.declaredFields
-          .run {
-            // mIsLoading is used in method stopLoading, before calling
-            // Lorg/chromium/content_public/browser/WebContents;->stop()V
-            val target = find { it.name == "mIsLoading" }
-            if (target == null) {
-              val webContents = Chrome.load("org.chromium.content_public.browser.WebContents")
-              val startIndex =
-                  maxOf(
-                      indexOfFirst { it.type == webContents },
-                      indexOfFirst { it.type == loadUrlParams })
-              slice(startIndex..size - 1).find {
-                it.type == Boolean::class.java && !Modifier.isStatic(it.modifiers)
-              }!!
-            } else target
-          }
-          .also { it.isAccessible = true }
+      findFieldOrNull(tabImpl, true) { name == "mIsLoading" }
+          ?: tabImpl.declaredFields
+              .run {
+                val target = find { it.name == "mIsLoading" }
+                if (target == null) {
+                  val webContents = Chrome.loadOrNull("org.chromium.content_public.browser.WebContents")
+                  val startIndex =
+                      maxOf(
+                          if (webContents != null) indexOfFirst { it.type == webContents } else -1,
+                          indexOfFirst { it.type == loadUrlParams })
+                  val range = if (startIndex >= 0 && startIndex < size) slice(startIndex until size) else this.toList()
+                  range.find {
+                    (it.type == Boolean::class.java || it.type == java.lang.Boolean.TYPE) && !Modifier.isStatic(it.modifiers)
+                  } ?: find { (it.type == Boolean::class.java || it.type == java.lang.Boolean.TYPE) && !Modifier.isStatic(it.modifiers) }
+                  ?: tabImpl.declaredFields.first()
+                } else target
+              }
+              .also { it.isAccessible = true }
   }
-  val getUrl by lazy { findMethodOrNull(tabImpl) { returnType == gURL } }
+  val getUrl by lazy {
+      findMethodOrNull(tabImpl, true) { returnType == gURL || returnType.name.contains("GURL") }
+          ?: findMethodOrNull(tabImpl, true) { name == "getUrl" }
+  }
   val loadUrl by lazy {
-      findMethod(if (Chrome.isSamsung) tabWebContentsDelegateAndroidImpl else tabImpl) {
+      findMethodOrNull(if (Chrome.isSamsung) tabWebContentsDelegateAndroidImpl else tabImpl, true) {
         parameterTypes contentDeepEquals arrayOf(loadUrlParams) &&
             (Chrome.isSamsung || returnType != Void.TYPE)
+      } ?: findMethod(if (Chrome.isSamsung) tabWebContentsDelegateAndroidImpl else tabImpl, true) {
+        parameterTypes.size == 1 && parameterTypes[0] == loadUrlParams
       }
   }
 

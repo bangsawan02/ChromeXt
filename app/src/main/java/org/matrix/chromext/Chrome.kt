@@ -1,5 +1,6 @@
 package org.matrix.chromext
 
+import android.app.AndroidAppHelper
 import android.app.NotificationChannel
 import android.app.NotificationChannelGroup
 import android.app.NotificationManager
@@ -30,6 +31,7 @@ import org.matrix.chromext.utils.findField
 import org.matrix.chromext.utils.findMethod
 import org.matrix.chromext.utils.hookAfter
 import org.matrix.chromext.utils.invokeMethod
+import org.matrix.chromext.utils.invokeMethodOrNull
 
 object Chrome {
   private var mContext: WeakReference<Context>? = null
@@ -162,18 +164,57 @@ object Chrome {
   }
 
   fun getContext(): Context {
-    if (Chrome.isSamsung) return mContext!!.get()!!
+    if (Chrome.isSamsung) {
+      val ctx = mContext?.get() ?: runCatching { AndroidAppHelper.currentApplication() }.getOrNull()
+      if (ctx != null) return ctx
+    }
+    val fromTab =
+        runCatching {
+          val tab = getTab() ?: return@runCatching null
+          val direct =
+              runCatching {
+                tab.invokeMethodOrNull {
+                  (name == "getContext" || Context::class.java.isAssignableFrom(returnType)) &&
+                      parameterTypes.isEmpty()
+                } as? Context
+              }.getOrNull()
+          if (direct != null) return@runCatching direct
+
+          val windowAndroid =
+              runCatching {
+                tab.invokeMethodOrNull {
+                  name == "getWindowAndroid" || returnType.name.contains("WindowAndroid")
+                }
+              }.getOrNull()
+          if (windowAndroid != null) {
+            val ctxRef =
+                runCatching {
+                  windowAndroid.invokeMethodOrNull {
+                    name == "getContext" ||
+                        returnType.name.contains("Context") ||
+                        Context::class.java.isAssignableFrom(returnType)
+                  }
+                }.getOrNull()
+            if (ctxRef is WeakReference<*>) (ctxRef.get() as? Context) else (ctxRef as? Context)
+          } else null
+        }.getOrNull()
+
     val activity =
-        getTab()?.invokeMethod { name == "getContext" || returnType == Context::class.java }
-            as Context?
+        fromTab ?: mContext?.get() ?: runCatching { AndroidAppHelper.currentApplication() }.getOrNull()
     if (activity != null && mContext == null) init(activity, activity.packageName)
-    return activity ?: mContext!!.get()!!
+    return activity ?: mContext?.get() ?: runCatching { AndroidAppHelper.currentApplication() }.getOrNull()
+        ?: throw IllegalStateException("Context is not available")
   }
 
   fun checkTab(tab: Any?): Boolean {
     if (tab == null) return false
     if (UserScriptHook.isInit) {
-      return tab.invokeMethod { name == "isInitialized" } as Boolean
+      return runCatching {
+        tab.invokeMethodOrNull {
+          (name == "isInitialized" || (returnType == Boolean::class.java || returnType == java.lang.Boolean.TYPE)) &&
+              parameterTypes.isEmpty()
+        } as? Boolean
+      }.getOrNull() ?: (tab == getTab())
     } else {
       return tab == getTab()
     }
@@ -192,11 +233,16 @@ object Chrome {
   }
 
   fun getUrl(tab: Any? = null): String? {
-    val url = getTab(tab)?.invokeMethod { name == "getUrl" }
+    val url =
+        runCatching {
+          getTab(tab)?.invokeMethodOrNull {
+            name == "getUrl" || returnType.name.contains("GURL") || returnType == String::class.java
+          }
+        }.getOrNull()
     return if (UserScriptHook.isInit) {
       UserScriptProxy.parseUrl(url)
     } else {
-      url as String?
+      url as? String
     }
   }
 

@@ -70,28 +70,9 @@ object PreferenceHook : BaseHook() {
         }
 
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-      findMethodOrNull(WindowInsets::class.java) { name == "getSystemGestureInsets" }
+      findMethodOrNull(WindowInsets::class.java, true) { name == "getSystemGestureInsets" }
           ?.hookBefore {
-            val ctx = Chrome.getContext()
-            val sharedPref = ctx.getSharedPreferences("ChromeXt", Context.MODE_PRIVATE)
-            if (sharedPref.getBoolean("gesture_mod", true)) {
-              it.result = Insets.of(0, 0, 0, 0)
-              toggleGestureConflict(true)
-            } else {
-              toggleGestureConflict(false)
-            }
-          }
-    }
-
-    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-      findMethod(WindowInsets::class.java) {
-            name == "getInsets" &&
-                parameterTypes.size == 1 &&
-                parameterTypes.first() == Int::class.java
-          }
-          .hookBefore {
-            val typeMask = it.args[0] as Int
-            if (typeMask == WindowInsets.Type.systemGestures()) {
+            runCatching {
               val ctx = Chrome.getContext()
               val sharedPref = ctx.getSharedPreferences("ChromeXt", Context.MODE_PRIVATE)
               if (sharedPref.getBoolean("gesture_mod", true)) {
@@ -99,6 +80,29 @@ object PreferenceHook : BaseHook() {
                 toggleGestureConflict(true)
               } else {
                 toggleGestureConflict(false)
+              }
+            }
+          }
+    }
+
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+      findMethodOrNull(WindowInsets::class.java, true) {
+            name == "getInsets" &&
+                parameterTypes.size == 1 &&
+                (parameterTypes.first() == Int::class.java || parameterTypes.first() == java.lang.Integer.TYPE)
+          }
+          ?.hookBefore {
+            val typeMask = it.args[0] as Int
+            if (typeMask == WindowInsets.Type.systemGestures()) {
+              runCatching {
+                val ctx = Chrome.getContext()
+                val sharedPref = ctx.getSharedPreferences("ChromeXt", Context.MODE_PRIVATE)
+                if (sharedPref.getBoolean("gesture_mod", true)) {
+                  it.result = Insets.of(0, 0, 0, 0)
+                  toggleGestureConflict(true)
+                } else {
+                  toggleGestureConflict(false)
+                }
               }
             }
           }

@@ -39,6 +39,12 @@ fun Any.invokeMethod(vararg args: Any?, condition: MethodCondition): Any? {
   throw NoSuchMethodException()
 }
 
+fun Any.invokeMethodOrNull(vararg args: Any?, condition: MethodCondition): Any? {
+  return runCatching {
+    findMethodOrNull(this::class.java, true, condition)?.invoke(this, *args)
+  }.getOrNull()
+}
+
 fun findField(clz: Class<*>, findSuper: Boolean = false, condition: FieldCondition): Field {
   return findFieldOrNull(clz, findSuper, condition) ?: throw NoSuchFieldException()
 }
