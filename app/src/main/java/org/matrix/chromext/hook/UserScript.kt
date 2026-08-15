@@ -24,12 +24,11 @@ object UserScriptHook : BaseHook() {
 
     val proxy = UserScriptProxy
 
-    // proxy.tabModelJniBridge.declaredConstructors[0].hookAfter {
-    //   Chrome.addTabModel(it.thisObject)
-    // }
-
-    // findMethod(proxy.tabModelJniBridge) { name == "destroy" }
-    //     .hookBefore { Chrome.dropTabModel(it.thisObject) }
+    runCatching {
+      proxy.tabImpl.declaredConstructors.forEach {
+        it.hookAfter { Chrome.updateTab(it.thisObject) }
+      }
+    }
 
     if (Chrome.isSamsung) {
       findMethodOrNull(proxy.tabWebContentsDelegateAndroidImpl) { name == "onDidFinishNavigation" }
@@ -102,21 +101,28 @@ object UserScriptHook : BaseHook() {
           .onFailure { if (BuildConfig.DEBUG) Log.ex(it) }
     }
 
+    findMethodOrNull(proxy.tabImpl, true) {
+          name == "onPageLoadFinished" || name == "didStopLoading"
+        }
+        ?.hookAfter {
+          Chrome.updateTab(it.thisObject)
+          val url = Chrome.getUrl(it.thisObject)
+          if (url != null && url.isNotEmpty() && !url.startsWith("chrome")) {
+            ScriptDbManager.invokeScript(url, it.thisObject)
+          }
+        }
+
     findMethodOrNull(proxy.tabWebContentsDelegateAndroidImpl, true) {
           name == "didStopLoading" || name == "onPageLoadFinished"
         }
         ?.hookAfter {
           val tab = runCatching { proxy.mTab.get(it.thisObject) }.getOrNull() ?: Chrome.getTab()
-          if (tab != null) Chrome.updateTab(tab)
-
-          var url = if (tab != null && proxy.getUrl != null) proxy.parseUrl(proxy.getUrl?.invoke(tab)) else null
-          if (url == null || url.isEmpty()) {
-            if (it.args.isNotEmpty()) {
-              url = proxy.parseUrl(it.args[0])
+          if (tab != null) {
+            Chrome.updateTab(tab)
+            val url = Chrome.getUrl(tab) ?: (if (it.args.isNotEmpty()) proxy.parseUrl(it.args[0]) else null)
+            if (url != null && url.isNotEmpty() && !url.startsWith("chrome")) {
+              ScriptDbManager.invokeScript(url, tab)
             }
-          }
-          if (url != null && url.isNotEmpty() && !url.startsWith("chrome")) {
-            ScriptDbManager.invokeScript(url)
           }
         }
 
