@@ -3,10 +3,10 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:orientation="vertical"
-    android:background="#F1F5F9"
+    android:background="#0F172A"
     android:padding="16dp">
 
-    <!-- Top Header Bar -->
+    <!-- Header Section -->
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
@@ -24,87 +24,116 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="ChromeXt"
-                android:textSize="24sp"
+                android:textSize="22sp"
                 android:textStyle="bold"
-                android:textColor="#0F172A" />
+                android:textColor="#F8FAFC" />
 
             <TextView
-                android:id="@+id/tv_subtitle"
+                android:id="@+id/tv_module_status"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="UserScript Manager"
-                android:textSize="14sp"
-                android:textColor="#64748B" />
+                android:text="Checking Xposed status…"
+                android:textSize="12sp"
+                android:textStyle="bold"
+                android:textColor="#94A3B8"
+                android:paddingTop="2dp" />
         </LinearLayout>
 
         <Button
+            android:id="@+id/btn_open_browser"
+            style="?android:attr/buttonStyleSmall"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="🌐 Browser"
+            android:textSize="12sp"
+            android:textColor="#FFFFFF"
+            android:backgroundTint="#3B82F6"
+            android:layout_marginEnd="6dp" />
+
+        <Button
             android:id="@+id/btn_add_script"
+            style="?android:attr/buttonStyleSmall"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="+ Add"
-            android:textSize="14sp"
+            android:textSize="12sp"
             android:textStyle="bold"
             android:textColor="#FFFFFF"
-            android:backgroundTint="#2563EB" />
+            android:backgroundTint="#10B981" />
     </LinearLayout>
 
-    <!-- Search Bar -->
+    <!-- Search Input -->
     <EditText
         android:id="@+id/et_search"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:hint="@string/search_scripts"
+        android:textColorHint="#64748B"
         android:textSize="14sp"
-        android:padding="12dp"
-        android:background="#FFFFFF"
-        android:elevation="2dp"
+        android:padding="10dp"
+        android:background="#1E293B"
+        android:textColor="#F1F5F9"
         android:singleLine="true"
-        android:layout_marginBottom="12dp" />
+        android:layout_marginBottom="10dp" />
 
-    <!-- Action Buttons Bar -->
-    <LinearLayout
+    <!-- Action Toolbar Buttons (Horizontal Scrollable to guarantee no overflow on small screens) -->
+    <HorizontalScrollView
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:orientation="horizontal"
-        android:layout_marginBottom="12dp">
+        android:scrollbars="none"
+        android:layout_marginBottom="10dp">
 
-        <Button
-            android:id="@+id/btn_import_file"
-            style="?android:attr/buttonStyleSmall"
-            android:layout_width="0dp"
+        <LinearLayout
+            android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:text="📁 Import File"
-            android:textSize="12sp"
-            android:backgroundTint="#475569"
-            android:textColor="#FFFFFF"
-            android:layout_marginEnd="4dp" />
+            android:orientation="horizontal">
 
-        <Button
-            android:id="@+id/btn_import_url"
-            style="?android:attr/buttonStyleSmall"
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:text="🌐 Import URL"
-            android:textSize="12sp"
-            android:backgroundTint="#0284C7"
-            android:textColor="#FFFFFF"
-            android:layout_marginEnd="4dp" />
+            <Button
+                android:id="@+id/btn_create_new"
+                style="?android:attr/buttonStyleSmall"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="✏️ New Script"
+                android:textSize="12sp"
+                android:backgroundTint="#334155"
+                android:textColor="#F8FAFC"
+                android:layout_marginEnd="6dp" />
 
-        <Button
-            android:id="@+id/btn_create_new"
-            style="?android:attr/buttonStyleSmall"
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:text="✏️ New Script"
-            android:textSize="12sp"
-            android:backgroundTint="#059669"
-            android:textColor="#FFFFFF" />
-    </LinearLayout>
+            <Button
+                android:id="@+id/btn_import_url"
+                style="?android:attr/buttonStyleSmall"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="🌐 From URL"
+                android:textSize="12sp"
+                android:backgroundTint="#334155"
+                android:textColor="#F8FAFC"
+                android:layout_marginEnd="6dp" />
 
-    <!-- Script Count & Status -->
+            <Button
+                android:id="@+id/btn_import_file"
+                style="?android:attr/buttonStyleSmall"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="📁 Import File"
+                android:textSize="12sp"
+                android:backgroundTint="#334155"
+                android:textColor="#F8FAFC"
+                android:layout_marginEnd="6dp" />
+
+            <Button
+                android:id="@+id/btn_templates"
+                style="?android:attr/buttonStyleSmall"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="⚡ Templates"
+                android:textSize="12sp"
+                android:backgroundTint="#6366F1"
+                android:textColor="#FFFFFF" />
+        </LinearLayout>
+    </HorizontalScrollView>
+
+    <!-- Count Summary -->
     <TextView
         android:id="@+id/tv_count"
         android:layout_width="match_parent"
@@ -112,22 +141,22 @@
         android:text="0 scripts installed"
         android:textSize="12sp"
         android:textStyle="bold"
-        android:textColor="#64748B"
+        android:textColor="#94A3B8"
         android:layout_marginBottom="8dp" />
 
-    <!-- Empty State Container -->
+    <!-- Empty State -->
     <TextView
         android:id="@+id/tv_empty"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:text="@string/no_scripts"
         android:gravity="center"
-        android:textSize="16sp"
-        android:textColor="#94A3B8"
-        android:padding="32dp"
+        android:textSize="14sp"
+        android:textColor="#64748B"
+        android:padding="28dp"
         android:visibility="gone" />
 
-    <!-- UserScripts List -->
+    <!-- UserScript List -->
     <ListView
         android:id="@+id/lv_scripts"
         android:layout_width="match_parent"

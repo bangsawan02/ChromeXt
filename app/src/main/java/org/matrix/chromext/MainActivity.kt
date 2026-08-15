@@ -4,6 +4,7 @@ import android.app.Activity
 import android.app.AlertDialog
 import android.content.ContentValues
 import android.content.Intent
+import android.graphics.Color
 import android.net.Uri
 import android.os.Bundle
 import android.os.Handler
@@ -33,10 +34,16 @@ class MainActivity : Activity() {
     private lateinit var etSearch: EditText
     private lateinit var tvCount: TextView
     private lateinit var tvEmpty: TextView
+    private lateinit var tvModuleStatus: TextView
     private lateinit var adapter: ScriptAdapter
 
     private val allScripts = mutableListOf<Script>()
     private val filteredScripts = mutableListOf<Script>()
+
+    /**
+     * Hooked at runtime by MainHook when module is loaded by Xposed/LSPosed
+     */
+    fun isModuleActive(): Boolean = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -46,17 +53,65 @@ class MainActivity : Activity() {
         etSearch = findViewById(R.id.et_search)
         tvCount = findViewById(R.id.tv_count)
         tvEmpty = findViewById(R.id.tv_empty)
+        tvModuleStatus = findViewById(R.id.tv_module_status)
 
         adapter = ScriptAdapter()
         lvScripts.adapter = adapter
 
+        updateModuleStatusView()
         loadScripts()
         setupSearch()
 
         findViewById<Button>(R.id.btn_add_script).setOnClickListener { showAddMenu() }
+        findViewById<Button>(R.id.btn_open_browser).setOnClickListener { openBrowser() }
         findViewById<Button>(R.id.btn_import_file).setOnClickListener { openFilePicker() }
         findViewById<Button>(R.id.btn_import_url).setOnClickListener { showImportUrlDialog() }
         findViewById<Button>(R.id.btn_create_new).setOnClickListener { showScriptEditor(null) }
+        findViewById<Button>(R.id.btn_templates).setOnClickListener { showTemplatesDialog() }
+    }
+
+    override fun onResume() {
+        super.onResume()
+        updateModuleStatusView()
+    }
+
+    private fun updateModuleStatusView() {
+        val active = runCatching { isModuleActive() }.getOrDefault(false)
+        if (active) {
+            tvModuleStatus.text = "● Xposed Module Active"
+            tvModuleStatus.setTextColor(Color.parseColor("#34D399")) // Emerald green
+        } else {
+            tvModuleStatus.text = "○ Module Inactive (Enable in LSPosed & reboot browser)"
+            tvModuleStatus.setTextColor(Color.parseColor("#FBBF24")) // Amber warning
+        }
+
+        tvModuleStatus.setOnClickListener {
+            AlertDialog.Builder(this)
+                .setTitle("ChromeXt Xposed Module")
+                .setMessage(
+                    if (active)
+                        "ChromeXt is active and ready to inject userscripts into Chromium-based browsers."
+                    else
+                        "Module is not detected as active in this process.\n\n" +
+                        "1. Open LSPosed / Xposed Manager.\n" +
+                        "2. Enable ChromeXt module.\n" +
+                        "3. Add your target browsers (e.g. Chrome, Brave, Edge, Kiwi) to the scope.\n" +
+                        "4. Force stop and restart the browser."
+                )
+                .setPositiveButton("OK", null)
+                .show()
+        }
+    }
+
+    private fun openBrowser() {
+        val browserIntent = Intent(Intent.ACTION_VIEW, Uri.parse("https://google.com")).apply {
+            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        }
+        runCatching {
+            startActivity(browserIntent)
+        }.onFailure {
+            Toast.makeText(this, "No browser found to open", Toast.LENGTH_SHORT).show()
+        }
     }
 
     private fun loadScripts() {
@@ -110,13 +165,136 @@ class MainActivity : Activity() {
     private fun showAddMenu() {
         AlertDialog.Builder(this)
             .setTitle("Add UserScript")
-            .setItems(arrayOf("📁 From File", "🌐 From URL", "✏️ Create New")) { _, which ->
+            .setItems(arrayOf("📁 From File", "🌐 From URL", "✏️ Create New", "⚡ Load Template")) { _, which ->
                 when (which) {
                     0 -> openFilePicker()
                     1 -> showImportUrlDialog()
                     2 -> showScriptEditor(null)
+                    3 -> showTemplatesDialog()
                 }
             }
+            .show()
+    }
+
+    private fun showTemplatesDialog() {
+        val templateNames = arrayOf(
+            "🌙 Dark Mode Enabler",
+            "🛠️ Eruda Mobile DevTools",
+            "🚫 Anti-Adblock Popup Remover",
+            "⚡ Fast Video Speed Controller",
+            "🔗 URL Parameter Cleaner"
+        )
+        val templateCodes = arrayOf(
+            // Dark Mode
+            """// ==UserScript==
+// @name         Universal Dark Mode
+// @namespace    org.matrix.chromext
+// @version      1.0
+// @description  Inverts high brightness web elements for dark viewing
+// @match        *://*/*
+// @run-at       document-start
+// @grant        none
+// ==/UserScript==
+
+(function() {
+    const css = 'html { filter: invert(90%) hue-rotate(180deg) !important; background: #111 !important; } img, video, canvas { filter: invert(100%) hue-rotate(180deg) !important; }';
+    const style = document.createElement('style');
+    style.appendChild(document.createTextNode(css));
+    (document.head || document.documentElement).appendChild(style);
+})();
+""",
+            // Eruda Devtools
+            """// ==UserScript==
+// @name         Eruda DevTools Loader
+// @namespace    org.matrix.chromext
+// @version      1.0
+// @description  Injects Eruda console into web pages for debugging
+// @match        *://*/*
+// @run-at       document-end
+// @grant        none
+// ==/UserScript==
+
+(function() {
+    if (window.eruda) return;
+    const script = document.createElement('script');
+    script.src = 'https://cdn.jsdelivr.net/npm/eruda';
+    script.onload = () => { window.eruda.init(); };
+    document.body.appendChild(script);
+})();
+""",
+            // Anti-Adblock popup remover
+            """// ==UserScript==
+// @name         Anti-Adblock Popup Cleaner
+// @namespace    org.matrix.chromext
+// @version      1.0
+// @description  Removes common adblock overlay dialogs and re-enables scroll
+// @match        *://*/*
+// @run-at       document-idle
+// @grant        none
+// ==/UserScript==
+
+(function() {
+    setInterval(() => {
+        document.body.style.overflow = 'auto';
+        document.documentElement.style.overflow = 'auto';
+    }, 1500);
+})();
+""",
+            // Video Speed
+            """// ==UserScript==
+// @name         Video Speed Controller
+// @namespace    org.matrix.chromext
+// @version      1.0
+// @description  Allows setting video playback rate to 2x easily
+// @match        *://*/*
+// @run-at       document-idle
+// @grant        none
+// ==/UserScript==
+
+(function() {
+    window.addEventListener('keydown', (e) => {
+        if (e.key === ']' || e.key === '}') {
+            document.querySelectorAll('video').forEach(v => v.playbackRate += 0.25);
+        } else if (e.key === '[' || e.key === '{') {
+            document.querySelectorAll('video').forEach(v => v.playbackRate = Math.max(0.25, v.playbackRate - 0.25));
+        }
+    });
+})();
+""",
+            // URL Cleaner
+            """// ==UserScript==
+// @name         Clean Tracking URLs
+// @namespace    org.matrix.chromext
+// @version      1.0
+// @description  Strips utm_* and fbclid tracking parameters from links
+// @match        *://*/*
+// @run-at       document-start
+// @grant        none
+// ==/UserScript==
+
+(function() {
+    const url = new URL(window.location.href);
+    const trackingParams = ['utm_source', 'utm_medium', 'utm_campaign', 'utm_term', 'utm_content', 'fbclid', 'gclid'];
+    let changed = false;
+    trackingParams.forEach(p => {
+        if (url.searchParams.has(p)) {
+            url.searchParams.delete(p);
+            changed = true;
+        }
+    });
+    if (changed) {
+        window.history.replaceState({}, document.title, url.toString());
+    }
+})();
+"""
+        )
+
+        AlertDialog.Builder(this)
+            .setTitle("Select Template")
+            .setItems(templateNames) { _, which ->
+                installScriptFromSource(templateCodes[which])
+            }
+            .setNegativeButton("Cancel", null)
             .show()
     }
 
@@ -149,6 +327,7 @@ class MainActivity : Activity() {
             try {
                 val conn = URL(urlStr).openConnection() as HttpURLConnection
                 conn.connectTimeout = 10_000
+                conn.readTimeout = 10_000
                 val code = BufferedReader(InputStreamReader(conn.inputStream)).readText()
                 conn.disconnect()
                 Handler(Looper.getMainLooper()).post {
@@ -165,7 +344,7 @@ class MainActivity : Activity() {
     private fun installScriptFromSource(source: String) {
         val script = parseScript(source)
         if (script == null) {
-            Toast.makeText(this, "Invalid UserScript format", Toast.LENGTH_SHORT).show()
+            Toast.makeText(this, "Invalid UserScript format (Missing ==UserScript== headers)", Toast.LENGTH_SHORT).show()
             return
         }
         saveScript(script)
@@ -184,7 +363,7 @@ class MainActivity : Activity() {
         val result = runCatching { db.insertOrThrow("script", null, values) }
         dbHelper.close()
         if (result.isSuccess) {
-            Toast.makeText(this, "Script installed: ${script.id}", Toast.LENGTH_SHORT).show()
+            Toast.makeText(this, "Script saved: ${script.id.substringAfter(":")}", Toast.LENGTH_SHORT).show()
             loadScripts()
         } else {
             Toast.makeText(this, "Failed to save script", Toast.LENGTH_SHORT).show()
@@ -194,7 +373,7 @@ class MainActivity : Activity() {
     private fun deleteScript(script: Script) {
         AlertDialog.Builder(this)
             .setTitle("Delete Script")
-            .setMessage("Delete \"${script.id}\"?")
+            .setMessage("Delete \"${script.id.substringAfter(":")}\"?")
             .setPositiveButton("Delete") { _, _ ->
                 val dbHelper = ScriptDbHelper(this)
                 val db = dbHelper.writableDatabase
@@ -216,7 +395,7 @@ class MainActivity : Activity() {
             etCode.setText(script.meta + script.code)
         }
         AlertDialog.Builder(this)
-            .setTitle(if (script == null) "Create New Script" else "Edit: ${script.id}")
+            .setTitle(if (script == null) "Create New Script" else "Edit: ${script.id.substringAfter(":")}")
             .setView(view)
             .setPositiveButton("Save") { _, _ ->
                 val src = etCode.text.toString()
@@ -227,7 +406,6 @@ class MainActivity : Activity() {
     }
 
     private fun exportScript(script: Script) {
-        val content = script.meta + script.code
         val intent = Intent(Intent.ACTION_CREATE_DOCUMENT).apply {
             addCategory(Intent.CATEGORY_OPENABLE)
             type = "text/javascript"

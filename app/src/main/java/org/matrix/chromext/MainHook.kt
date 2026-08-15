@@ -18,6 +18,7 @@ import org.matrix.chromext.hook.WebViewHook
 import org.matrix.chromext.utils.Log
 import org.matrix.chromext.utils.findMethodOrNull
 import org.matrix.chromext.utils.hookAfter
+import org.matrix.chromext.utils.hookBefore
 
 val supportedPackages =
     arrayOf(
@@ -54,7 +55,15 @@ val supportedPackages =
 class MainHook : IXposedHookLoadPackage, IXposedHookZygoteInit {
   override fun handleLoadPackage(lpparam: XC_LoadPackage.LoadPackageParam) {
     Log.d(lpparam.processName + " started")
-    if (lpparam.packageName == "org.matrix.chromext") return
+    if (lpparam.packageName == "org.matrix.chromext") {
+      runCatching {
+        lpparam.classLoader
+            .loadClass("org.matrix.chromext.MainActivity")
+            .getDeclaredMethod("isModuleActive")
+            .hookBefore { it.result = true }
+      }
+      return
+    }
     if (supportedPackages.contains(lpparam.packageName)) {
       lpparam.classLoader
           .loadClass("org.chromium.ui.base.WindowAndroid")
@@ -65,10 +74,9 @@ class MainHook : IXposedHookLoadPackage, IXposedHookZygoteInit {
             if (ContextMenuHook.isInit) return@hookAfter
             runCatching {
                   if (!Chrome.isVivaldi) initHooks(PreferenceHook)
-                  initHooks(if (Chrome.isEdge || Chrome.isCocCoc) PageInfoHook else PageMenuHook)
+                  if (Chrome.isEdge || Chrome.isCocCoc) initHooks(PageInfoHook)
                 }
                 .onFailure {
-                  initHooks(ContextMenuHook)
                   if (BuildConfig.DEBUG && !(Chrome.isSamsung || Chrome.isEdge)) Log.ex(it)
                 }
           }

@@ -65,3 +65,24 @@ fun findFieldOrNull(clz: Class<*>, findSuper: Boolean = false, condition: FieldC
   }
   return null
 }
+
+fun findFirstFieldByType(clz: Class<*>, type: Class<*>, findSuper: Boolean = true): Field? {
+  return findFieldOrNull(clz, findSuper) { type.isAssignableFrom(this.type) }
+}
+
+fun findFieldsByType(clz: Class<*>, type: Class<*>, findSuper: Boolean = true): List<Field> {
+  val result = mutableListOf<Field>()
+  var c: Class<*>? = clz
+  while (c != null) {
+    val fields = runCatching { c.declaredFields }.getOrNull() ?: emptyArray()
+    for (f in fields) {
+      if (type.isAssignableFrom(f.type)) {
+        runCatching { f.isAccessible = true }
+        result.add(f)
+      }
+    }
+    if (!findSuper) break
+    c = c.superclass
+  }
+  return result
+}
